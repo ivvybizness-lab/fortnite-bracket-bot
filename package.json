@@ -1,0 +1,13 @@
+{
+  "name": "fortnite-bracket-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for Fortnite bracket signups, admin review, and accepted teams list",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}

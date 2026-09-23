@@ -1,0 +1,6 @@
+node_modules/
+.env
+data.json
+.deployed-commit
+*.zip
+bracket-bot-upload/
