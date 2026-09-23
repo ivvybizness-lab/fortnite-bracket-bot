@@ -425,7 +425,7 @@ client.on(Events.MessageCreate, async message => {
   if (message.author.bot || !message.guild || !message.content.startsWith(PREFIX)) return;
   const [cmd, ...args] = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const command = cmd.toLowerCase();
-  if (!['help', 'setup', 'reset', 'remove', 'teams', 'check'].includes(command)) return;
+  if (!['help', 'setup', 'reset', 'remove', 'teams', 'check', 'purge'].includes(command)) return;
 
   if (command === 'help') {
     const embed = new EmbedBuilder()
@@ -457,6 +457,10 @@ client.on(Events.MessageCreate, async message => {
           value: 'Reposts the Sign Up button for the current tournament (use it if the button got deleted).\nExample: `!setup`',
         },
         {
+          name: '!purge',
+          value: 'Deletes every message in the channel you type it in, except messages from bots and pinned messages. Handy for cleaning up the teams or signups channel.\nExample: `!purge`',
+        },
+        {
           name: '!check',
           value: 'Fixes the setup (channels, permissions, Community role) and shows a ✅/❌ checklist.\nExample: `!check`',
         },
@@ -477,6 +481,38 @@ client.on(Events.MessageCreate, async message => {
 
   if (!isStaff(message.member)) return message.reply('❌ Only admins can use this command.');
   const gd = guildData(message.guild.id);
+
+  if (command === 'purge') {
+    const channel = message.channel;
+    const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000 - 60 * 1000;
+    const toDelete = [];
+    let before;
+    let scanned = 0;
+    while (scanned < 5000) {
+      const batch = await channel.messages.fetch({ limit: 100, before });
+      if (batch.size === 0) break;
+      scanned += batch.size;
+      for (const msg of batch.values()) {
+        if (!msg.author.bot && !msg.pinned) toDelete.push(msg);
+      }
+      before = batch.last().id;
+    }
+
+    // Discord can bulk delete messages under 14 days old; older ones go one at a time.
+    const recent = toDelete.filter(m => Date.now() - m.createdTimestamp < TWO_WEEKS);
+    const old = toDelete.filter(m => Date.now() - m.createdTimestamp >= TWO_WEEKS);
+    let deleted = 0;
+    for (let i = 0; i < recent.length; i += 100) {
+      const chunk = recent.slice(i, i + 100);
+      if (chunk.length === 1) await chunk[0].delete().then(() => deleted++).catch(() => {});
+      else deleted += (await channel.bulkDelete(chunk, true).catch(() => new Map())).size;
+    }
+    for (const msg of old) await msg.delete().then(() => deleted++).catch(() => {});
+
+    const note = await channel.send(`🧹 Purged ${deleted} message(s). Bot messages and pinned messages were kept.`);
+    setTimeout(() => note.delete().catch(() => {}), 5000);
+    return;
+  }
 
   if (command === 'check') {
     await giveCommunityToEveryone(message.guild);
